@@ -547,6 +547,14 @@ function renderRevenue7DaysChart(orders) {
         values[diffDays] += Number.isFinite(amount) ? amount : 0;
     });
 
+    const hasRevenueData = values.some(value => value > 0);
+    if (!hasRevenueData) {
+        ensureDashboardMessage("revenueChart", "Chưa có dữ liệu doanh thu trong 7 ngày gần nhất");
+        return;
+    }
+
+    const maxRevenue = Math.max(...values);
+
     try {
         revenueChartInstance = new Chart(canvas.getContext("2d"), {
             type: "line",
@@ -568,6 +576,7 @@ function renderRevenue7DaysChart(orders) {
                 scales: {
                     y: {
                         beginAtZero: true,
+                        suggestedMax: maxRevenue > 0 ? maxRevenue : 1,
                         ticks: {
                             callback: (value) => new Intl.NumberFormat("vi-VN").format(value)
                         }
