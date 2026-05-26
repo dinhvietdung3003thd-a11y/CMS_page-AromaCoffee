@@ -22,7 +22,7 @@ async function loadRecipesPage(showToastOnSuccess = true) {
         const [productsResponse, categoriesResponse, inventoryResponse] = await Promise.all([
             apiFetch("/product"),
             apiFetch("/categories"),
-            apiFetch("/inventory")
+            apiFetch("/Inventory")
         ]);
 
         if (!productsResponse.ok || !categoriesResponse.ok || !inventoryResponse.ok) {
@@ -279,14 +279,14 @@ async function saveRecipe() {
 
         currentRecipeRows.forEach(row => {
             const payload = {
-                ProductId: productId,
-                InventoryId: row.inventoryId,
-                QuantityNeeded: Number(row.quantityNeeded)
+                productId: Number(productId),
+                inventoryId: Number(row.inventoryId),
+                quantityNeeded: Number(row.quantityNeeded)
             };
             if (row.recipeId) {
                 requests.push(apiFetch(`/Recipe/${row.recipeId}`, {
                     method: "PUT",
-                    body: JSON.stringify({ RecipeId: row.recipeId, ...payload })
+                    body: JSON.stringify({ recipeId: Number(row.recipeId), ...payload })
                 }));
             } else {
                 requests.push(apiFetch("/Recipe", {

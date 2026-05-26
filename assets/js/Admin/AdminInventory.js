@@ -12,7 +12,7 @@ async function loadInventoryPage(showToastOnSuccess = true) {
 
     try {
         const [inventoryResponse, transactionResponse] = await Promise.all([
-            apiFetch("/inventory"),
+            apiFetch("/Inventory"),
             apiFetch("/inventorytransaction")
         ]);
 
@@ -45,8 +45,8 @@ async function loadInventoryPage(showToastOnSuccess = true) {
 }
 
 function normalizeInventoryStatus(item) {
-    const quantity = Number(item.quantity ?? item.stockQuantity ?? item.currentStock ?? 0);
-    const minStock = Number(item.minStock ?? item.minimumStock ?? 10);
+    const quantity = Number(item.quantityInStock ?? item.quantity ?? item.stockQuantity ?? item.currentStock ?? 0);
+    const minStock = Number(item.minThreshold ?? item.minStock ?? item.minimumStock ?? 10);
 
     if (quantity <= 0) return "out";
     if (quantity <= minStock) return "low";
@@ -112,9 +112,9 @@ function renderInventoryTable(data) {
                     ${data.map(item => {
                         const id = item.inventoryId ?? item.id ?? "-";
                         const name = item.name ?? item.inventoryName ?? "-";
-                        const quantity = Number(item.quantity ?? item.stockQuantity ?? item.currentStock ?? 0);
+                        const quantity = Number(item.quantityInStock ?? item.quantity ?? item.stockQuantity ?? item.currentStock ?? 0);
                         const unit = item.unit ?? item.unitName ?? "-";
-                        const minStock = Number(item.minStock ?? item.minimumStock ?? 10);
+                        const minStock = Number(item.minThreshold ?? item.minStock ?? item.minimumStock ?? 10);
                         const status = normalizeInventoryStatus(item);
 
                         return `
@@ -195,10 +195,11 @@ function loadInventoryReport() {
 
 function openInventoryTransactionModal(type) {
     const title = document.getElementById("inventoryTransactionModalTitle");
-    const actionInput = document.getElementById("inventoryTransactionType");
-    const amountInput = document.getElementById("inventoryTransactionQuantity");
-    const noteInput = document.getElementById("inventoryTransactionNote");
-    const select = document.getElementById("inventoryTransactionItem");
+    const actionInput = document.getElementById("inventoryTransactionTypeInput");
+    const amountInput = document.getElementById("inventoryTransactionQuantityInput");
+    const noteInput = document.getElementById("inventoryTransactionNoteInput");
+    const select = document.getElementById("inventoryTransactionItemSelect");
+    const priceInput = document.getElementById("inventoryTransactionPriceInput");
 
     if (title) {
         title.textContent = type === "Import" ? "Stock In" : "Stock Out";
@@ -210,6 +211,7 @@ function openInventoryTransactionModal(type) {
 
     if (amountInput) amountInput.value = "";
     if (noteInput) noteInput.value = "";
+    if (priceInput) priceInput.value = "";
 
     if (select) {
         select.innerHTML = `
@@ -230,10 +232,11 @@ function closeInventoryTransactionModal() {
 }
 
 async function saveInventoryTransaction() {
-    const type = document.getElementById("inventoryTransactionType")?.value || "";
-    const itemId = document.getElementById("inventoryTransactionItem")?.value || "";
-    const quantity = Number(document.getElementById("inventoryTransactionQuantity")?.value || 0);
-    const note = document.getElementById("inventoryTransactionNote")?.value.trim() || "";
+    const type = document.getElementById("inventoryTransactionTypeInput")?.value || "";
+    const itemId = document.getElementById("inventoryTransactionItemSelect")?.value || "";
+    const quantity = Number(document.getElementById("inventoryTransactionQuantityInput")?.value || 0);
+    const note = document.getElementById("inventoryTransactionNoteInput")?.value.trim() || "";
+    const price = Number(document.getElementById("inventoryTransactionPriceInput")?.value || 0);
 
     if (!type || !itemId || quantity <= 0) {
         showToast("Vui lòng nhập đầy đủ thông tin giao dịch kho", "error");
@@ -249,36 +252,20 @@ async function saveInventoryTransaction() {
         return;
     }
 
-    /* Demo FE: cập nhật local ngay trên giao diện */
-    const currentQty = Number(matchedItem.quantity ?? matchedItem.stockQuantity ?? matchedItem.currentStock ?? 0);
-    const newQty = type === "Import"
-        ? currentQty + quantity
-        : currentQty - quantity;
-
-    if (type === "Export" && newQty < 0) {
-        showToast("Số lượng xuất vượt quá tồn kho hiện tại", "error");
-        return;
-    }
-
-    matchedItem.quantity = newQty;
-
-    inventoryTransactions.unshift({
-        id: Date.now(),
-        inventoryId: itemId,
-        type,
-        quantity,
-        note,
-        createdAt: new Date().toISOString()
+    const response = await apiFetch("/Inventory/transaction", {
+        method: "POST",
+        body: JSON.stringify({
+            inventoryId: Number(itemId),
+            transactionType: type,
+            quantity,
+            note,
+            price
+        })
     });
-
-    renderInventorySummary(inventoryData);
-    renderInventoryTable(getFilteredInventoryData());
+    if (!response.ok) throw new Error(await response.text() || "Không thể tạo giao dịch kho");
+    await loadInventoryPage(false);
     closeInventoryTransactionModal();
-
-    showToast(
-        type === "Import" ? "Stock in thành công (demo FE)" : "Stock out thành công (demo FE)",
-        "success"
-    );
+    showToast(type === "Import" ? "Stock in thành công" : "Stock out thành công", "success");
 }
 
 function openInventoryHistoryModal() {

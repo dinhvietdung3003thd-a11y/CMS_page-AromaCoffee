@@ -5,7 +5,7 @@ async function loadOrders(showToastOnSuccess = true) {
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...</div>';
 
     try {
-        const response = await apiFetch("/orders");
+        const response = await apiFetch("/Orders");
         if (!response.ok) throw new Error("Không tải được danh sách đơn hàng.");
 
         const data = await response.json();
@@ -23,10 +23,12 @@ async function loadOrders(showToastOnSuccess = true) {
 }
 
 function switchOrderTab(tab) {
+    selectedOrders = [];
     currentTab = tab;
 
     document.querySelectorAll(".tab-button").forEach(btn => btn.classList.remove("active"));
-    const activeBtn = document.querySelector(`.tab-button[data-tab="${tab}"]`);
+    const tabMap = { active: 0, history: 1, online: 2 };
+    const activeBtn = document.querySelectorAll(".tab-button")[tabMap[tab] ?? 0];
     if (activeBtn) activeBtn.classList.add("active");
 
     renderOrdersByTab();
@@ -75,6 +77,7 @@ function renderOrdersTable(orders) {
                     <th>Bàn</th>
                     <th>Trạng thái</th>
                     <th>Tổng tiền</th>
+                    <th>Ghi chú</th>
                     <th>Hành động</th>
                 </tr>
             </thead>
@@ -93,9 +96,11 @@ function renderOrdersTable(orders) {
                         <td>${order.tableName ?? order.tableNumber ?? "-"}</td>
                         <td>${order.status ?? "-"}</td>
                         <td>${formatCurrency(order.totalAmount ?? order.total ?? 0)}</td>
+                        <td>${order.note ?? "-"}</td>
                         <td>
                             <div class="action-buttons">
                                 <button class="btn-sm btn-info" onclick='viewOrder(${JSON.stringify(order)})'>View</button>
+                                <button class="btn-sm" onclick="promptUpdateOrderStatus(${order.id ?? order.orderId ?? 0})">Status</button>
                             </div>
                         </td>
                     </tr>
@@ -165,7 +170,19 @@ async function deleteSelectedOrders() {
         return;
     }
 
-    showToast("Chức năng xóa nhiều đơn đang để demo FE.", "success");
+    if (!confirm(`Xóa ${selectedOrders.length} đơn hàng đã chọn?`)) return;
+    try {
+        for (const id of selectedOrders) {
+            const response = await apiFetch(`/Orders/${id}`, { method: "DELETE" });
+            if (!response.ok) throw new Error(`Xóa đơn #${id} thất bại`);
+        }
+        selectedOrders = [];
+        await loadOrders(false);
+        showToast("Đã xóa đơn hàng thành công", "success");
+    } catch (error) {
+        console.error(error);
+        showToast(error.message || "Không thể xóa đơn hàng", "error");
+    }
 }
 
 function openFilterModal() {
@@ -177,7 +194,116 @@ function openSearchModal() {
 }
 
 function openCreateOrderModal() {
-    showToast("Create order modal sẽ nối ở file inventory / orders nâng cao.", "success");
+    openModal("createOrderModal");
+    initializeCreateOrderModal();
+}
+
+async function initializeCreateOrderModal() {
+    try {
+        const [tablesRes, productsRes] = await Promise.all([apiFetch("/Tables"), apiFetch("/product")]);
+        if (!tablesRes.ok || !productsRes.ok) throw new Error("Không tải được dữ liệu tạo đơn");
+        const tables = await tablesRes.json();
+        const products = await productsRes.json();
+        createOrderTables = Array.isArray(tables) ? tables : (tables.data || []);
+        createOrderProducts = Array.isArray(products) ? products : (products.data || []);
+        createOrderItems = {};
+        selectedCreateOrderTableId = null;
+
+        const tableSelect = document.getElementById("createOrderTableSelect");
+        if (tableSelect) {
+            tableSelect.innerHTML = `<option value="">Chọn bàn</option>${createOrderTables.map(t => `<option value="${t.tableId ?? t.id}">${t.tableName ?? `Bàn ${t.tableId ?? t.id}`}</option>`).join("")}`;
+        }
+
+        const productsList = document.getElementById("createOrderProductsList");
+        if (productsList) {
+            productsList.innerHTML = createOrderProducts.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px;"><span>${p.name ?? p.productName}</span><button type="button" class="action-btn" onclick="addProductToCreateOrder(${p.productId ?? p.id})">+</button></div>`).join("");
+        }
+        renderCreateOrderCart();
+    } catch (error) {
+        showToast(error.message || "Không thể khởi tạo tạo đơn", "error");
+    }
+}
+
+function addProductToCreateOrder(productId) {
+    const id = Number(productId);
+    createOrderItems[id] = (createOrderItems[id] || 0) + 1;
+    renderCreateOrderCart();
+}
+
+function removeProductFromCreateOrder(productId) {
+    const id = Number(productId);
+    if (!createOrderItems[id]) return;
+    createOrderItems[id] -= 1;
+    if (createOrderItems[id] <= 0) delete createOrderItems[id];
+    renderCreateOrderCart();
+}
+
+function renderCreateOrderCart() {
+    const cart = document.getElementById("createOrderCart");
+    const totalEl = document.getElementById("createOrderTotal");
+    if (!cart || !totalEl) return;
+
+    const entries = Object.entries(createOrderItems);
+    let total = 0;
+    cart.innerHTML = entries.length
+        ? entries.map(([pid, qty]) => {
+            const product = createOrderProducts.find(item => Number(item.productId ?? item.id) === Number(pid));
+            const price = Number(product?.price || 0);
+            total += price * qty;
+            return `<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>${product?.name ?? product?.productName ?? pid} x${qty}</span><button type="button" class="btn-sm btn-danger" onclick="removeProductFromCreateOrder(${pid})">-</button></div>`;
+        }).join("")
+        : "<p>Chưa có món</p>";
+    totalEl.textContent = formatCurrency(total);
+}
+
+async function submitCreateOrder() {
+    const tableId = Number(document.getElementById("createOrderTableSelect")?.value || 0) || null;
+    const details = Object.entries(createOrderItems).map(([productId, quantity]) => ({ productId: Number(productId), quantity: Number(quantity) }));
+    if (!details.length) return showToast("Vui lòng chọn ít nhất 1 món", "error");
+
+    const payload = {
+        orderDate: new Date().toISOString(),
+        tableId,
+        status: "Pending",
+        customerId: null,
+        note: "",
+        details
+    };
+
+    try {
+        const response = await apiFetch("/Orders", { method: "POST", body: JSON.stringify(payload) });
+        if (!response.ok) throw new Error(await response.text() || "Tạo đơn thất bại");
+        closeCreateOrderModal();
+        await loadOrders(false);
+        showToast("Tạo đơn hàng thành công", "success");
+    } catch (error) {
+        showToast(error.message || "Tạo đơn thất bại", "error");
+    }
+}
+
+function closeCreateOrderModal() {
+    closeModal("createOrderModal");
+}
+
+function handleCreateOrderTableChange(value) {
+    selectedCreateOrderTableId = value ? Number(value) : null;
+}
+
+async function promptUpdateOrderStatus(orderId) {
+    const status = prompt("Nhập trạng thái mới (Pending/Completed/Cancelled):");
+    if (!status) return;
+    try {
+        const response = await apiFetch(`/Orders/${orderId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(status)
+        });
+        if (!response.ok) throw new Error(await response.text() || "Cập nhật trạng thái thất bại");
+        await loadOrders(false);
+        showToast("Cập nhật trạng thái thành công", "success");
+    } catch (error) {
+        showToast(error.message || "Cập nhật trạng thái thất bại", "error");
+    }
 }
 
 function loadSales() {
