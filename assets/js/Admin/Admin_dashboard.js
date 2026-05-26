@@ -97,7 +97,12 @@ function handleAccountAvatarChange(event) {
 window.addEventListener("DOMContentLoaded", () => {
     if (!window.Auth.requireAdmin()) return;
 
-    loadUserProfile();
+    try {
+        loadUserProfile();
+    } catch (error) {
+        console.error("loadUserProfile init error:", error);
+    }
+
     bindGlobalEvents();
     showDashboard();
 });
