@@ -116,6 +116,15 @@ function bindGlobalEvents() {
     }
 }
 
+function updateMaintenanceStatus(event) {
+    const isEnabled = Boolean(event?.target?.checked);
+    try {
+        localStorage.setItem("maintenanceMode", isEnabled ? "true" : "false");
+    } catch (error) {
+        console.error("Cannot save maintenance mode:", error);
+    }
+}
+
 /* =========================
    COMMON HELPERS
 ========================= */
