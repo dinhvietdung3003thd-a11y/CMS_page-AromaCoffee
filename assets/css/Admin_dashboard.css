@@ -366,7 +366,7 @@
         
         @media (max-width: 960px) {
             .card { grid-template-columns: 1fr; }
-            .sidebar { padding: 28px; }
+            .sidebar { padding: 28px; position: static; top: auto; height: auto; max-height: none; overflow-y: visible; border-radius: 30px 30px 0 0; }
             .content { padding: 28px; }
             .summary { grid-template-columns: 1fr; }
             .status { grid-template-columns: 1fr; }
