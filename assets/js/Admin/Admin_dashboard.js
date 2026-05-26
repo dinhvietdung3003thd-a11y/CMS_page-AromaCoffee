@@ -4,6 +4,10 @@ let allCategories = [];
 let currentTab = "active";
 let selectedOrders = [];
 
+
+let revenueChartInstance = null;
+let categoryChartInstance = null;
+
 let allInventoryItems = [];
 let inventoryData = [];
 let inventoryTransactions = [];
@@ -437,6 +441,272 @@ function renderDashboardRecentOrders(orders, hasError = false) {
     `;
 }
 
+
+function getLast7DaysRange() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const start = new Date(today);
+    start.setDate(start.getDate() - 6);
+
+    const end = new Date(today);
+    end.setDate(end.getDate() + 1);
+
+    return { start, end };
+}
+
+function isOrderInLast7DaysAndCompleted(order, range) {
+    if (!order) return false;
+    const status = String(order.status || "").toLowerCase();
+    if (status !== "completed") return false;
+
+    const date = new Date(order.orderDate);
+    if (Number.isNaN(date.getTime())) return false;
+
+    return date >= range.start && date < range.end;
+}
+
+async function loadOrderDetailsById(orderId) {
+    const response = await apiFetch(`/Orders/${orderId}`);
+    if (!response.ok) throw new Error(`Không thể tải chi tiết order #${orderId}`);
+    return parseJsonSafe(response);
+}
+
+async function loadProductById(productId) {
+    const response = await apiFetch(`/Product/${productId}`);
+    if (!response.ok) throw new Error(`Không thể tải product #${productId}`);
+    return parseJsonSafe(response);
+}
+
+function ensureDashboardMessage(canvasId, message, legendId = null) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        console.error(`Chart container not found: ${canvasId}`);
+        return;
+    }
+
+    const parent = canvas.parentElement || canvas;
+    let messageEl = parent.querySelector(".chart-message");
+    if (!messageEl) {
+        messageEl = document.createElement("div");
+        messageEl.className = "empty-state chart-message";
+        parent.appendChild(messageEl);
+    }
+
+    messageEl.textContent = message;
+    canvas.style.display = "none";
+
+    if (legendId) {
+        const legendContainer = document.getElementById(legendId);
+        if (legendContainer) legendContainer.innerHTML = "";
+    }
+}
+
+function clearDashboardMessage(canvasId) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const parent = canvas.parentElement || canvas;
+    const messageEl = parent.querySelector(".chart-message");
+    if (messageEl) messageEl.remove();
+    canvas.style.display = "";
+}
+
+function renderRevenue7DaysChart(orders) {
+    const canvas = document.getElementById("revenueChart");
+    if (!canvas) {
+        console.error("Chart container not found: revenueChart");
+        return;
+    }
+
+    clearDashboardMessage("revenueChart");
+
+    if (revenueChartInstance) {
+        revenueChartInstance.destroy();
+        revenueChartInstance = null;
+    }
+
+    const range = getLast7DaysRange();
+    const labels = [];
+    const values = [];
+    for (let i = 0; i < 7; i += 1) {
+        const day = new Date(range.start);
+        day.setDate(range.start.getDate() + i);
+        const label = `${String(day.getDate()).padStart(2, "0")}/${String(day.getMonth() + 1).padStart(2, "0")}`;
+        labels.push(label);
+        values.push(0);
+    }
+
+    (Array.isArray(orders) ? orders : []).forEach(order => {
+        if (!isOrderInLast7DaysAndCompleted(order, range)) return;
+        const date = new Date(order.orderDate);
+        date.setHours(0, 0, 0, 0);
+        const diffDays = Math.floor((date - range.start) / 86400000);
+        if (diffDays < 0 || diffDays > 6) return;
+        const amount = Number(order.totalAmount);
+        values[diffDays] += Number.isFinite(amount) ? amount : 0;
+    });
+
+    try {
+        revenueChartInstance = new Chart(canvas.getContext("2d"), {
+            type: "line",
+            data: {
+                labels,
+                datasets: [{
+                    label: "Doanh thu (VND)",
+                    data: values,
+                    borderColor: "#4f46e5",
+                    backgroundColor: "rgba(79, 70, 229, 0.15)",
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => new Intl.NumberFormat("vi-VN").format(value)
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Render revenue chart failed:", error);
+        ensureDashboardMessage("revenueChart", "Không thể tải dữ liệu biểu đồ");
+    }
+}
+
+async function renderCategoryDistributionChart(orders) {
+    const chartCanvas = document.getElementById("categoriesChart");
+    if (!chartCanvas) {
+        console.error("Chart container not found: categoriesChart");
+        return;
+    }
+
+    clearDashboardMessage("categoriesChart");
+
+    if (categoryChartInstance) {
+        categoryChartInstance.destroy();
+        categoryChartInstance = null;
+    }
+
+    const wrapper = chartCanvas.parentElement;
+    if (!wrapper) {
+        console.error("Chart wrapper not found for categoriesChart");
+        return;
+    }
+
+    let legendContainer = document.getElementById("categoriesChartLegend");
+    if (!legendContainer) {
+        legendContainer = document.createElement("div");
+        legendContainer.id = "categoriesChartLegend";
+        legendContainer.className = "chart-legend";
+        wrapper.insertAdjacentElement("afterend", legendContainer);
+    }
+    legendContainer.innerHTML = "";
+
+    const range = getLast7DaysRange();
+    const completedRecentOrders = (Array.isArray(orders) ? orders : []).filter(order => isOrderInLast7DaysAndCompleted(order, range));
+
+    const detailPromises = completedRecentOrders.map(async (order) => {
+        const details = Array.isArray(order?.details) ? order.details.filter(Boolean) : [];
+        if (details.length > 0) return details;
+        try {
+            const orderDetailPayload = await loadOrderDetailsById(order.id);
+            return Array.isArray(orderDetailPayload?.details) ? orderDetailPayload.details : [];
+        } catch (error) {
+            console.error(`Cannot load order details for order #${order?.id}:`, error);
+            return [];
+        }
+    });
+
+    const allDetails = (await Promise.all(detailPromises)).flat();
+    if (!allDetails.length) {
+        ensureDashboardMessage("categoriesChart", "Chưa có dữ liệu danh mục", "categoriesChartLegend");
+        return;
+    }
+
+    const uniqueProductIds = [...new Set(allDetails.map(detail => Number(detail?.productId)).filter(Number.isFinite))];
+    const productCache = new Map();
+
+    await Promise.all(uniqueProductIds.map(async (productId) => {
+        if (productCache.has(productId)) return;
+        try {
+            const product = await loadProductById(productId);
+            if (product) productCache.set(productId, product);
+        } catch (error) {
+            console.error(`Cannot load product #${productId}:`, error);
+        }
+    }));
+
+    const categoryMap = new Map();
+    allDetails.forEach((detail) => {
+        const productId = Number(detail?.productId);
+        if (!Number.isFinite(productId)) return;
+
+        const product = productCache.get(productId);
+        if (!product) return;
+
+        const categoryId = Number(product?.categoryId);
+        if (!Number.isFinite(categoryId)) return;
+
+        const categoryName = product?.categoryName ? String(product.categoryName).trim() : "";
+        const label = categoryName || `Danh mục #${categoryId}`;
+
+        const rawQuantity = Number(detail?.quantity);
+        const quantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
+
+        if (!categoryMap.has(categoryId)) {
+            categoryMap.set(categoryId, { label, quantity: 0 });
+        }
+
+        categoryMap.get(categoryId).quantity += quantity;
+    });
+
+    if (categoryMap.size === 0) {
+        ensureDashboardMessage("categoriesChart", "Chưa có dữ liệu danh mục", "categoriesChartLegend");
+        return;
+    }
+
+    const categoryEntries = [...categoryMap.entries()];
+    const labels = categoryEntries.map(([, value]) => value.label);
+    const values = categoryEntries.map(([, value]) => value.quantity);
+    const totalQuantity = values.reduce((sum, val) => sum + val, 0);
+
+    try {
+        categoryChartInstance = new Chart(chartCanvas.getContext("2d"), {
+            type: "doughnut",
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ["#4f46e5", "#f59e0b", "#10b981", "#ef4444", "#06b6d4", "#8b5cf6", "#84cc16", "#f97316"]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        legendContainer.innerHTML = labels.map((label, index) => {
+            const percent = totalQuantity > 0 ? ((values[index] / totalQuantity) * 100) : 0;
+            return `<div class="legend-item">${label}: ${percent.toFixed(1)}%</div>`;
+        }).join("");
+    } catch (error) {
+        console.error("Render category chart failed:", error);
+        ensureDashboardMessage("categoriesChart", "Không thể tải dữ liệu biểu đồ", "categoriesChartLegend");
+    }
+}
+
 async function loadDashboardData() {
     setDashboardLoadingState();
 
@@ -467,6 +737,8 @@ async function loadDashboardData() {
 
     renderDashboardKpis(orders, inventoryTransactions, tables);
     renderDashboardRecentOrders(orders, ordersError);
+    renderRevenue7DaysChart(orders);
+    await renderCategoryDistributionChart(orders);
 }
 
 window.loadDashboardData = loadDashboardData;
