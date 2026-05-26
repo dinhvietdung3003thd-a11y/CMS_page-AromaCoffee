@@ -149,10 +149,27 @@ async function deleteCategory(categoryId) {
     if (!confirm("Bạn có chắc muốn xóa danh mục này?")) return;
     try {
         const response = await apiFetch(`/Categories/${categoryId}`, { method: "DELETE" });
-        if (!response.ok) throw new Error(await response.text() || "Xóa danh mục thất bại");
+        if (!response.ok) {
+            const errorText = await response.text();
+            const normalizedError = String(errorText || "").toLowerCase();
+            const foreignKeySignals = [
+                "foreign key constraint fails",
+                "on delete restrict",
+                "products_ibfk_1",
+                "constraint",
+                "references"
+            ];
+            const isForeignKeyError = foreignKeySignals.some(signal => normalizedError.includes(signal));
+            throw new Error(isForeignKeyError
+                ? "Danh mục đã được sử dụng, không thể xóa."
+                : "Không thể xóa danh mục. Vui lòng thử lại.");
+        }
         await loadCategories(false);
         showToast("Xóa danh mục thành công", "success");
     } catch (error) {
-        showToast(error.message || "Xóa danh mục thất bại", "error");
+        const message = typeof error?.message === "string" && error.message.trim()
+            ? error.message
+            : "Không thể xóa danh mục. Vui lòng thử lại.";
+        showToast(message, "error");
     }
 }

@@ -224,7 +224,7 @@ function renderRecipeEditor() {
                 <button class="action-btn pay-btn" type="button" onclick="addRecipeIngredient()">+ Thêm Nguyên liệu</button>
             </div>
             <div id="recipeIngredientsTableContainer">${rowsHtml}</div>
-            <div style="display:flex; justify-content:flex-end; gap: 12px; margin-top: 12px;">
+            <div class="recipe-save-actions">
                 <button class="action-btn pay-btn" type="button" onclick="saveRecipe()">Lưu Công thức</button>
             </div>
         </div>`;
