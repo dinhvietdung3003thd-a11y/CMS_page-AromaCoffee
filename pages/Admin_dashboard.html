@@ -402,6 +402,9 @@
                     </div>
 
                     <div class="orders-action-buttons inventory-actions">
+                        <button class="action-btn" onclick="openCreateInventoryModal()">
+                            <i class="fas fa-plus"></i> + Thêm nguyên liệu
+                        </button>
                         <button class="action-btn pay-btn" onclick="openInventoryTransactionModal('Import')">
                             <i class="fas fa-file-import"></i> Stock In
                         </button>
@@ -884,6 +887,43 @@
                 <div style="display:flex; justify-content:flex-end; gap: 12px; margin-top: 12px;">
                     <button class="action-btn" type="button" onclick="closeInventoryTransactionModal()">Hủy</button>
                     <button class="action-btn pay-btn" type="button" onclick="submitInventoryTransaction()">Create Transaction</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="inventoryCreateModal">
+        <div class="modal-content inventory-modal-content">
+            <div class="modal-header">
+                <h2>Thêm nguyên liệu mới</h2>
+                <button class="modal-close" onclick="closeCreateInventoryModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <label>Tên nguyên liệu</label>
+                    <input id="inventoryCreateNameInput" type="text" placeholder="Ví dụ: Trà đen" />
+                </div>
+                <div class="modal-field">
+                    <label>Đơn vị</label>
+                    <input id="inventoryCreateUnitInput" type="text" placeholder="Ví dụ: kg, ml, g, hộp" />
+                </div>
+                <div class="modal-field">
+                    <label>Số lượng ban đầu</label>
+                    <input id="inventoryCreateQuantityInput" type="number" min="0" step="0.01" placeholder="Nhập số lượng ban đầu" />
+                </div>
+                <div class="modal-field">
+                    <label>Tồn tối thiểu</label>
+                    <input id="inventoryCreateMinThresholdInput" type="number" min="0" step="0.01" placeholder="Nhập tồn tối thiểu" />
+                </div>
+                <div class="modal-field">
+                    <label>Nhà cung cấp</label>
+                    <select id="inventoryCreateSupplierSelect">
+                        <option value="">Chọn nhà cung cấp</option>
+                    </select>
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap: 12px; margin-top: 12px;">
+                    <button class="action-btn" type="button" onclick="closeCreateInventoryModal()">Hủy</button>
+                    <button class="action-btn pay-btn" type="button" onclick="submitCreateInventory()">Tạo nguyên liệu</button>
                 </div>
             </div>
         </div>
