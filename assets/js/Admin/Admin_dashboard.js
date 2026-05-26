@@ -1,5 +1,3 @@
-const API_BASE_URL = window.APP_CONFIG.API_BASE_URL;
-
 let allOrders = [];
 let allProducts = [];
 let allCategories = [];
@@ -32,6 +30,65 @@ let hrmCurrentMode = "add";
 let hrmEditId = null;
 
 window.currentUser = null;
+
+function loadUserProfile() {
+    const userJson = localStorage.getItem("user");
+    if (!userJson) return;
+
+    let parsed;
+    try {
+        parsed = JSON.parse(userJson);
+    } catch {
+        return;
+    }
+
+    const source = parsed?.user && typeof parsed.user === "object" ? parsed.user : parsed;
+    if (!source || typeof source !== "object") return;
+
+    const fullName = source.fullName || source.FullName || source.name || source.username || source.email || "User";
+    const role = source.role || source.Role || "user";
+    const username = source.username || source.Username || "";
+    const email = source.email || source.Email || "";
+    const phoneNumber = source.phoneNumber || source.PhoneNumber || "";
+    const avatarUrl = source.avatar || source.Avatar || null;
+
+    const profileAvatar = document.getElementById("profileAvatar");
+    if (profileAvatar) {
+        if (avatarUrl) {
+            profileAvatar.innerHTML = `<img src="${avatarUrl}" alt="Avatar">`;
+        } else {
+            profileAvatar.textContent = String(fullName).charAt(0).toUpperCase();
+        }
+    }
+
+    const profileName = document.getElementById("profileName");
+    if (profileName) profileName.textContent = fullName;
+
+    const profileRole = document.getElementById("profileRole");
+    if (profileRole) profileRole.textContent = role;
+
+    window.currentUser = { fullName, role, username, email, phoneNumber, avatar: avatarUrl };
+}
+
+function handleAccountAvatarChange(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        if (typeof reader.result !== "string") return;
+
+        const preview = document.getElementById("accountAvatarPreview");
+        if (preview) preview.innerHTML = `<img src="${reader.result}" alt="Avatar">`;
+
+        if (!window.currentUser) window.currentUser = {};
+        window.currentUser.avatar = reader.result;
+
+        const profileAvatar = document.getElementById("profileAvatar");
+        if (profileAvatar) profileAvatar.innerHTML = `<img src="${reader.result}" alt="Avatar">`;
+    };
+    reader.readAsDataURL(file);
+}
 
 window.addEventListener("DOMContentLoaded", () => {
     if (!window.Auth.requireAdmin()) return;
@@ -144,7 +201,7 @@ function showSection(sectionId) {
 }
 
 async function apiFetch(path, options = {}) {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${window.APP_CONFIG.API_BASE_URL}${path}`, {
         ...options,
         headers: window.Auth.buildHeaders(options.headers || {})
     });
