@@ -274,6 +274,11 @@ function showRecipesPage() {
     if (typeof loadRecipesPage === "function") loadRecipesPage();
 }
 
+function showTablesPage() {
+    showSection("tablesSection");
+    if (typeof loadTablesPage === "function") loadTablesPage();
+}
+
 function showInventoryPage() {
     showSection("inventorySection");
     if (typeof loadInventoryPage === "function") loadInventoryPage();

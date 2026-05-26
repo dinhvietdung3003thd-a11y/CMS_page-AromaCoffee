@@ -58,6 +58,7 @@
                                 <a href="#" onclick="showProductsPage()">Products</a>
                                 <a href="#" onclick="showCategoriesPage()">Categories</a>
                                 <a href="#" onclick="showRecipesPage()">Recipes</a>
+                                <a href="#" onclick="showTablesPage()">Tables</a>
                             </div>
                         </div>
 
@@ -387,6 +388,48 @@
                         <div id="categoriesTableContainer" style="overflow-x: auto;">
                             <div class="loading">
                                 <i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLES SECTION -->
+                <div id="tablesSection" class="content-section">
+                    <div class="topbar">
+                        <div>
+                            <h2>Quản lý bàn</h2>
+                            <p>Quản lý thông tin bàn và trạng thái phục vụ trong quán.</p>
+                        </div>
+                    </div>
+
+                    <div class="summary" style="margin-top: 24px;">
+                        <div class="card-sm">
+                            <h3>TỔNG SỐ BÀN</h3>
+                            <strong id="totalTablesCount">0</strong>
+                        </div>
+                        <div class="card-sm">
+                            <h3>AVAILABLE</h3>
+                            <strong id="availableTablesCount">0</strong>
+                        </div>
+                        <div class="card-sm">
+                            <h3>OCCUPIED</h3>
+                            <strong id="occupiedTablesCount">0</strong>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 16px; margin: 24px 0; align-items: center; flex-wrap: wrap;">
+                        <button class="action-btn pay-btn" onclick="openTableModal('add')">
+                            <i class="fas fa-plus"></i> + Thêm bàn
+                        </button>
+                        <input type="text" id="tablesSearchInput" placeholder="Tìm theo tên bàn"
+                               style="flex: 1; min-width: 280px; padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 0.95rem;"
+                               oninput="filterTables()">
+                    </div>
+
+                    <div class="section">
+                        <div id="tablesTableContainer" style="overflow-x: auto;">
+                            <div class="loading">
+                                <i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu bàn...
                             </div>
                         </div>
                     </div>
@@ -1124,8 +1167,29 @@
         </div>
     </div>
 
+    <div class="modal" id="tableModal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2 id="tableModalTitle">Thêm bàn</h2>
+                <button class="modal-close" onclick="closeTableModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input id="tableNameInput" type="text" placeholder="Tên bàn">
+                <select id="tableStatusInput" style="margin-top: 12px;">
+                    <option value="Available">Available</option>
+                    <option value="Occupied">Occupied</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn" type="button" onclick="closeTableModal()">Huỷ</button>
+                <button class="action-btn pay-btn" type="button" onclick="submitTableForm()">Lưu</button>
+            </div>
+        </div>
+    </div>
+
     <script src="../assets/js/Config.js"></script>
     <script src="../assets/js/Auth.js"></script>
+    <script src="../assets/js/Admin/Admin_dashboard.js"></script>
     <script src="../assets/js/Admin/AdminProfile.js"></script>
     <script src="../assets/js/Admin/AdminSetting.js"></script>
     <script src="../assets/js/Admin/AdminOrder.js"></script>
@@ -1135,7 +1199,7 @@
     <script src="../assets/js/Admin/AdminSupplier.js"></script>
     <script src="../assets/js/Admin/AdminHRM.js"></script>
     <script src="../assets/js/Admin/AdminRecipe.js"></script>
-    <script src="../assets/js/Admin/Admin_dashboard.js"></script>
+    <script src="../assets/js/Admin/AdminTables.js"></script>
     
 </body>
 </html>
