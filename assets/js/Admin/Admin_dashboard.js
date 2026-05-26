@@ -176,6 +176,7 @@ function downloadCSV(csvContent, fileName) {
 
 function showDashboard() {
     showSection("dashboardSection");
+    loadDashboardData();
 }
 
 function showOrdersPage() {
@@ -222,3 +223,171 @@ function showSettingsPage() {
     showSection("settingsSection");
     if (typeof loadSettings === "function") loadSettings();
 }
+
+/* =========================
+   DASHBOARD DATA
+========================= */
+
+function normalizeApiArray(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.result)) return payload.result;
+    if (Array.isArray(payload?.items)) return payload.items;
+    return [];
+}
+
+function setDashboardLoadingState() {
+    const loading = '<span class="loading-text">Đang tải...</span>';
+    const revenueEl = document.getElementById("dashKpiRevenue");
+    const ordersEl = document.getElementById("dashKpiOrders");
+    const stockEl = document.getElementById("dashKpiLowStock");
+    const tablesEl = document.getElementById("dashKpiTables");
+    if (revenueEl) revenueEl.innerHTML = loading;
+    if (ordersEl) ordersEl.innerHTML = loading;
+    if (stockEl) stockEl.innerHTML = loading;
+    if (tablesEl) tablesEl.innerHTML = loading;
+}
+
+function formatVnd(value) {
+    const numberValue = Number(value);
+    const safeValue = Number.isFinite(numberValue) ? numberValue : 0;
+    return `${new Intl.NumberFormat("vi-VN").format(safeValue)} ₫`;
+}
+
+async function loadDashboardOrders() {
+    try {
+        const response = await apiFetch("/orders");
+        if (!response.ok) throw new Error("Không thể tải danh sách đơn hàng");
+        const payload = await parseJsonSafe(response);
+        return normalizeApiArray(payload);
+    } catch (error) {
+        console.error("loadDashboardOrders error:", error);
+        return [];
+    }
+}
+
+async function loadDashboardInventoryTransactions() {
+    try {
+        const response = await apiFetch("/InventoryTransaction");
+        if (!response.ok) throw new Error("Không thể tải giao dịch kho");
+        const payload = await parseJsonSafe(response);
+        return normalizeApiArray(payload);
+    } catch (error) {
+        console.error("loadDashboardInventoryTransactions error:", error);
+        return [];
+    }
+}
+
+async function loadDashboardTables() {
+    try {
+        const response = await apiFetch("/Tables");
+        if (!response.ok) throw new Error("Không thể tải danh sách bàn");
+        const payload = await parseJsonSafe(response);
+        return normalizeApiArray(payload);
+    } catch (error) {
+        console.error("loadDashboardTables error:", error);
+        return [];
+    }
+}
+
+function renderDashboardKpis(orders, inventoryTransactions, tables) {
+    const safeOrders = Array.isArray(orders) ? orders : [];
+    const safeTransactions = Array.isArray(inventoryTransactions) ? inventoryTransactions : [];
+    const safeTables = Array.isArray(tables) ? tables : [];
+
+    const totalRevenue = safeOrders.reduce((sum, order) => {
+        const raw = order?.totalAmount;
+        const amount = Number(raw);
+        return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+
+    const revenueEl = document.getElementById("dashKpiRevenue");
+    const ordersEl = document.getElementById("dashKpiOrders");
+    const stockEl = document.getElementById("dashKpiLowStock");
+    const tablesEl = document.getElementById("dashKpiTables");
+
+    if (revenueEl) revenueEl.innerHTML = `<strong>${formatVnd(totalRevenue)}</strong>`;
+    if (ordersEl) ordersEl.innerHTML = `<strong>${safeOrders.length}</strong>`;
+    if (stockEl) stockEl.innerHTML = `<strong>${safeTransactions.length}</strong>`;
+    if (tablesEl) tablesEl.innerHTML = `<strong>${safeTables.length}</strong>`;
+}
+
+function renderDashboardRecentOrders(orders, hasError = false) {
+    const container = document.getElementById("recentOrdersContainer");
+    if (!container) return;
+
+    if (hasError) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i> Không thể tải đơn hàng</div>';
+        return;
+    }
+
+    const safeOrders = Array.isArray(orders) ? orders : [];
+    if (!safeOrders.length) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i> Chưa có đơn hàng</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Mã đơn</th>
+                    <th>Ngày đặt</th>
+                    <th>Tổng tiền</th>
+                    <th>Bàn</th>
+                    <th>Trạng thái</th>
+                    <th>Người tạo</th>
+                    <th>Khách hàng</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${safeOrders.map(order => `
+                    <tr>
+                        <td>${order?.id ?? "-"}</td>
+                        <td>${formatDateTime(order?.orderDate)}</td>
+                        <td>${formatVnd(Number(order?.totalAmount))}</td>
+                        <td>${order?.tableId ?? "-"}</td>
+                        <td>${order?.status ?? "-"}</td>
+                        <td>${order?.creatorFullName ?? "-"}</td>
+                        <td>${order?.customerId ?? "-"}</td>
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    `;
+}
+
+async function loadDashboardData() {
+    setDashboardLoadingState();
+
+    const recentContainer = document.getElementById("recentOrdersContainer");
+    if (recentContainer) {
+        recentContainer.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Đang tải đơn hàng...</div>';
+    }
+
+    let orders = [];
+    let inventoryTransactions = [];
+    let tables = [];
+    let ordersError = false;
+
+    try {
+        [orders, inventoryTransactions, tables] = await Promise.all([
+            loadDashboardOrders(),
+            loadDashboardInventoryTransactions(),
+            loadDashboardTables()
+        ]);
+    } catch (error) {
+        console.error("loadDashboardData error:", error);
+    }
+
+    if (!Array.isArray(orders)) {
+        ordersError = true;
+        orders = [];
+    }
+
+    renderDashboardKpis(orders, inventoryTransactions, tables);
+    renderDashboardRecentOrders(orders, ordersError);
+}
+
+window.loadDashboardData = loadDashboardData;
+window.showDashboard = showDashboard;
