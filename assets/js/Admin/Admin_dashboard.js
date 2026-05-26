@@ -361,11 +361,25 @@ function renderDashboardKpis(orders, inventoryTransactions, tables) {
     const safeTransactions = Array.isArray(inventoryTransactions) ? inventoryTransactions : [];
     const safeTables = Array.isArray(tables) ? tables : [];
 
-    const totalRevenue = safeOrders.reduce((sum, order) => {
-        const raw = order?.totalAmount;
-        const amount = Number(raw);
-        return sum + (Number.isFinite(amount) ? amount : 0);
-    }, 0);
+    const totalRevenue = safeOrders
+        .filter(order => {
+            const status = String(order?.status || "").toLowerCase();
+            const date = new Date(order?.orderDate);
+
+            if (status !== "completed") return false;
+            if (Number.isNaN(date.getTime())) return false;
+
+            const today = new Date();
+            return (
+                date.getFullYear() === today.getFullYear() &&
+                date.getMonth() === today.getMonth() &&
+                date.getDate() === today.getDate()
+            );
+        })
+        .reduce((sum, order) => {
+            const amount = Number(order?.totalAmount);
+            return sum + (Number.isFinite(amount) ? amount : 0);
+        }, 0);
 
     const revenueEl = document.getElementById("dashKpiRevenue");
     const ordersEl = document.getElementById("dashKpiOrders");
