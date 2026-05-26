@@ -268,6 +268,124 @@ async function saveInventoryTransaction() {
     showToast(type === "Import" ? "Stock in thành công" : "Stock out thành công", "success");
 }
 
+function resetCreateInventoryForm() {
+    const nameInput = document.getElementById("inventoryCreateNameInput");
+    const unitInput = document.getElementById("inventoryCreateUnitInput");
+    const quantityInput = document.getElementById("inventoryCreateQuantityInput");
+    const minThresholdInput = document.getElementById("inventoryCreateMinThresholdInput");
+    const supplierSelect = document.getElementById("inventoryCreateSupplierSelect");
+
+    if (nameInput) nameInput.value = "";
+    if (unitInput) unitInput.value = "";
+    if (quantityInput) quantityInput.value = "0";
+    if (minThresholdInput) minThresholdInput.value = "0";
+    if (supplierSelect) supplierSelect.value = "";
+}
+
+async function loadSupplierOptionsForInventory() {
+    const supplierSelect = document.getElementById("inventoryCreateSupplierSelect");
+    if (!supplierSelect) return;
+
+    supplierSelect.innerHTML = '<option value="">Chọn nhà cung cấp</option>';
+
+    try {
+        const response = await apiFetch("/supplier");
+        if (!response.ok) {
+            throw new Error("Không thể tải danh sách nhà cung cấp");
+        }
+
+        const suppliers = await response.json();
+        const supplierList = Array.isArray(suppliers) ? suppliers : (suppliers.data || []);
+
+        supplierSelect.innerHTML = `
+            <option value="">Chọn nhà cung cấp</option>
+            ${supplierList.map(item => {
+                const supplierId = item.supplierId ?? item.id ?? "";
+                const supplierName = item.name ?? item.supplierName ?? `NCC #${supplierId}`;
+                return `<option value="${supplierId}">${supplierName}</option>`;
+            }).join("")}
+        `;
+    } catch (error) {
+        console.error("Load suppliers for inventory create error:", error);
+        showToast("Không tải được danh sách nhà cung cấp", "error");
+    }
+}
+
+async function openCreateInventoryModal() {
+    resetCreateInventoryForm();
+    await loadSupplierOptionsForInventory();
+    openModal("inventoryCreateModal");
+}
+
+function closeCreateInventoryModal() {
+    closeModal("inventoryCreateModal");
+}
+
+async function submitCreateInventory() {
+    const name = document.getElementById("inventoryCreateNameInput")?.value.trim() || "";
+    const unit = document.getElementById("inventoryCreateUnitInput")?.value.trim() || "";
+    const quantityInStockRaw = document.getElementById("inventoryCreateQuantityInput")?.value || "0";
+    const minThresholdRaw = document.getElementById("inventoryCreateMinThresholdInput")?.value || "0";
+    const supplierIdRaw = document.getElementById("inventoryCreateSupplierSelect")?.value || "";
+
+    const quantityInStock = Number(quantityInStockRaw);
+    const minThreshold = Number(minThresholdRaw);
+    const supplierId = Number(supplierIdRaw);
+
+    if (!name) {
+        showToast("Tên nguyên liệu không được để trống", "error");
+        return;
+    }
+
+    if (!unit) {
+        showToast("Đơn vị không được để trống", "error");
+        return;
+    }
+
+    if (Number.isNaN(quantityInStock) || quantityInStock < 0) {
+        showToast("Số lượng ban đầu phải lớn hơn hoặc bằng 0", "error");
+        return;
+    }
+
+    if (Number.isNaN(minThreshold) || minThreshold < 0) {
+        showToast("Tồn tối thiểu phải lớn hơn hoặc bằng 0", "error");
+        return;
+    }
+
+    if (!supplierIdRaw || Number.isNaN(supplierId) || supplierId <= 0) {
+        showToast("Vui lòng chọn nhà cung cấp hợp lệ", "error");
+        return;
+    }
+
+    const payload = {
+        name,
+        unit,
+        quantityInStock,
+        minThreshold,
+        supplierId
+    };
+
+    try {
+        const response = await apiFetch("/Inventory", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+
+        const result = await parseJsonSafe(response);
+        if (!response.ok) {
+            throw new Error(result?.message || "Không thể tạo nguyên liệu");
+        }
+
+        showToast(result?.message || "Tạo nguyên liệu thành công", "success");
+        closeCreateInventoryModal();
+        resetCreateInventoryForm();
+        await loadInventoryPage(false);
+    } catch (error) {
+        console.error("Create inventory error:", error, payload);
+        showToast(error.message || "Tạo nguyên liệu thất bại", "error");
+    }
+}
+
 function openInventoryHistoryModal() {
     const body = document.getElementById("inventoryHistoryBody");
     if (!body) return;
