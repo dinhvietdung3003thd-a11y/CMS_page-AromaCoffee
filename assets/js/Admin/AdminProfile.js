@@ -30,7 +30,7 @@ function loadUserProfile() {
     if (profileRole) profileRole.textContent = role || "user";
 
     window.currentUser = {
-        llName,
+        fullName,
         role,
         username,
         email,
