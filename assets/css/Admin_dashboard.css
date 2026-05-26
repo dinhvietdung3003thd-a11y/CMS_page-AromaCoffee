@@ -14,8 +14,8 @@
         body { margin: 0; min-height: 100vh; font-family: 'Inter', system-ui, sans-serif; background: linear-gradient(135deg, #fff 0%, #f2e6dd 100%); color: var(--text); }
         html, body { min-height: 100%; }
         .page { display: flex; justify-content: center; padding: 40px 24px; }
-        .card { width: min(1250px, 100%); max-width: 1250px; min-height: calc(100vh - 80px); background: var(--surface); border-radius: 30px; box-shadow: var(--shadow); overflow: hidden; display: grid; grid-template-columns: 320px 1fr; align-items: start; }
-        .sidebar { background: var(--accent); color: var(--text-light); padding: 36px 28px; display: flex; flex-direction: column; justify-content: flex-start; position: sticky; top: 40px; align-self: start; height: calc(100vh - 80px); max-height: calc(100vh - 80px); overflow-y: auto; border-radius: 30px 0 0 30px; }
+        .card { width: min(1250px, 100%); max-width: 1250px; min-height: calc(100vh - 80px); background: var(--surface); border-radius: 30px; box-shadow: var(--shadow); overflow: hidden; display: grid; grid-template-columns: 320px 1fr; align-items: stretch; }
+        .sidebar { background: var(--accent); color: var(--text-light); padding: 36px 28px; display: flex; flex-direction: column; justify-content: flex-start; align-self: stretch; border-radius: 30px 0 0 30px; }
         .profile { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-bottom: 28px; border-bottom: 1px solid rgba(255,255,255,0.2); cursor: pointer; transition: opacity .2s ease; }
         .profile:hover { opacity: 0.9; }
         .profile-avatar { width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700; overflow: hidden; }
