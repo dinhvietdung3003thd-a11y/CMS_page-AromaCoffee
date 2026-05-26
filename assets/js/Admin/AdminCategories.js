@@ -5,7 +5,7 @@ async function loadCategories(showToastOnSuccess = true) {
     }
 
     try {
-        const response = await apiFetch("/categories");
+        const response = await apiFetch("/Categories");
         if (!response.ok) throw new Error("Không tải được danh mục.");
 
         const data = await response.json();
@@ -44,6 +44,7 @@ function renderCategoriesTable(categories) {
                     <th>ID</th>
                     <th>Tên danh mục</th>
                     <th>Mô tả</th>
+                    <th>Hành động</th>
                 </tr>
             </thead>
             <tbody>
@@ -52,6 +53,10 @@ function renderCategoriesTable(categories) {
                         <td>${cat.categoryId ?? cat.id ?? "-"}</td>
                         <td>${cat.name ?? cat.categoryName ?? "-"}</td>
                         <td>${cat.description ?? "-"}</td>
+                        <td>
+                            <button class="btn-sm" onclick='openCategoryModal(${JSON.stringify(cat)})'>Edit</button>
+                            <button class="btn-sm btn-danger" onclick="deleteCategory(${cat.categoryId ?? cat.id ?? 0})">Delete</button>
+                        </td>
                     </tr>
                 `).join("")}
             </tbody>
@@ -93,5 +98,61 @@ function filterCategories() {
 }
 
 function openCategoryModal() {
-    showToast("Category modal nâng cao sẽ nối tiếp nếu bạn muốn thêm CRUD category đầy đủ.", "success");
+    const category = arguments[0] || null;
+    window.currentCategoryEditId = category ? Number(category.categoryId ?? category.id) : null;
+    const title = document.getElementById("categoryModalTitle");
+    if (title) title.textContent = window.currentCategoryEditId ? "Edit Category" : "Add New Category";
+    const nameInput = document.getElementById("categoryNameInputModal");
+    const descInput = document.getElementById("categoryDescriptionInputModal");
+    if (nameInput) nameInput.value = category?.name ?? category?.categoryName ?? "";
+    if (descInput) descInput.value = category?.description ?? "";
+    openModal("categoryModal");
+}
+
+function closeCategoryModal() {
+    closeModal("categoryModal");
+}
+
+async function saveCategoryModal() {
+    const name = document.getElementById("categoryNameInputModal")?.value.trim() || "";
+    const description = document.getElementById("categoryDescriptionInputModal")?.value.trim() || "";
+    if (!name) return showToast("Vui lòng nhập tên danh mục", "error");
+
+    try {
+        let response;
+        if (window.currentCategoryEditId) {
+            response = await apiFetch(`/Categories/${window.currentCategoryEditId}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    categoryId: window.currentCategoryEditId,
+                    name,
+                    description
+                })
+            });
+        } else {
+            response = await apiFetch("/Categories", {
+                method: "POST",
+                body: JSON.stringify({ name, description })
+            });
+        }
+        if (!response.ok) throw new Error(await response.text() || "Lưu danh mục thất bại");
+        closeCategoryModal();
+        await loadCategories(false);
+        showToast("Lưu danh mục thành công", "success");
+    } catch (error) {
+        showToast(error.message || "Lưu danh mục thất bại", "error");
+    }
+}
+
+async function deleteCategory(categoryId) {
+    if (!categoryId) return;
+    if (!confirm("Bạn có chắc muốn xóa danh mục này?")) return;
+    try {
+        const response = await apiFetch(`/Categories/${categoryId}`, { method: "DELETE" });
+        if (!response.ok) throw new Error(await response.text() || "Xóa danh mục thất bại");
+        await loadCategories(false);
+        showToast("Xóa danh mục thành công", "success");
+    } catch (error) {
+        showToast(error.message || "Xóa danh mục thất bại", "error");
+    }
 }
