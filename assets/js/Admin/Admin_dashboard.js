@@ -752,3 +752,83 @@ async function loadDashboardData() {
 
 window.loadDashboardData = loadDashboardData;
 window.showDashboard = showDashboard;
+
+/* =========================
+   HTML COMPATIBILITY ALIASES
+========================= */
+window.addEventListener("load", () => {
+    if (typeof window.filterSuppliers === "function" && typeof window.filterSupplierList !== "function") {
+        window.filterSupplierList = window.filterSuppliers;
+    }
+
+    if (typeof window.saveSupplier === "function" && typeof window.submitSupplierForm !== "function") {
+        window.submitSupplierForm = window.saveSupplier;
+    }
+
+    if (typeof window.saveInventoryTransaction === "function" && typeof window.submitInventoryTransaction !== "function") {
+        window.submitInventoryTransaction = window.saveInventoryTransaction;
+    }
+
+    if (typeof window.saveAccountInfo === "function" && typeof window.updateProfileInfo !== "function") {
+        window.updateProfileInfo = window.saveAccountInfo;
+    }
+
+    if (typeof window.syncSystemSettings === "function" && typeof window.syncElasticSearch !== "function") {
+        window.syncElasticSearch = window.syncSystemSettings;
+    }
+
+    if (typeof window.updateMaintenanceStatus === "function" && typeof window.toggleMaintenanceMode !== "function") {
+        window.toggleMaintenanceMode = window.updateMaintenanceStatus;
+    }
+
+    if (typeof window.openModal === "function" && typeof window.openSupplierModal !== "function") {
+        window.openSupplierModal = () => {
+            window.currentSupplierEditId = null;
+            window.openModal("supplierModal");
+        };
+    }
+
+    const missingFeatureToast = (message) => () => {
+        if (typeof window.showToast === "function") {
+            window.showToast(message, "success");
+        }
+    };
+
+    if (typeof window.closeCreateOrderModal !== "function") {
+        window.closeCreateOrderModal = () => window.closeModal?.("createOrderModal");
+    }
+    if (typeof window.submitCreateOrder !== "function") {
+        window.submitCreateOrder = missingFeatureToast("Create order nâng cao đang ở trạng thái demo.");
+    }
+    if (typeof window.handleCreateOrderTableChange !== "function") {
+        window.handleCreateOrderTableChange = () => {};
+    }
+
+    if (typeof window.closeCategoryModal !== "function") {
+        window.closeCategoryModal = () => window.closeModal?.("categoryModal");
+    }
+    if (typeof window.saveCategoryModal !== "function") {
+        window.saveCategoryModal = missingFeatureToast("Category modal nâng cao đang ở trạng thái demo.");
+    }
+
+    if (typeof window.closeStockAdjustmentModal !== "function") {
+        window.closeStockAdjustmentModal = () => window.closeModal?.("stockAdjustmentModal");
+    }
+    if (typeof window.submitStockAdjustment !== "function") {
+        window.submitStockAdjustment = missingFeatureToast("Stock adjustment nâng cao đang ở trạng thái demo.");
+    }
+
+    if (typeof window.closeSupplierHistoryModal !== "function") {
+        window.closeSupplierHistoryModal = () => window.closeModal?.("supplierHistoryModal");
+    }
+    if (typeof window.closeSupplierSettleModal !== "function") {
+        window.closeSupplierSettleModal = () => window.closeModal?.("supplierSettleModal");
+    }
+    if (typeof window.submitSupplierSettlement !== "function") {
+        window.submitSupplierSettlement = missingFeatureToast("Supplier settlement nâng cao đang ở trạng thái demo.");
+    }
+
+    if (typeof window.closeInventoryHistoryModal !== "function") {
+        window.closeInventoryHistoryModal = () => window.closeModal?.("inventoryHistoryModal");
+    }
+});
