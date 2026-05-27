@@ -104,6 +104,17 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     bindGlobalEvents();
+
+    try {
+        if (typeof window.initAdminSignalR === "function") {
+            window.initAdminSignalR();
+        } else {
+            console.error("[SignalR] initAdminSignalR is not available.");
+        }
+    } catch (error) {
+        console.error("[SignalR] Admin SignalR init failed:", error);
+    }
+
     showDashboard();
 });
 
